@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Model checkpoints and weights
+checkpoints/
+*.pth
+*.bin
+*.safetensors
+
+# Datasets
+dataset/*.jsonl
+dataset/*.json
+dataset/*.txt
+!dataset/README.md
+
+# Logs
+*.log
+logs/
+wandb/
+swanlab/
+
+# Results
+results/*.png
+results/*.json
+results/*.csv
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
