@@ -29,7 +29,7 @@ print("\n模型已成功加载到 GPU 显存！正在根据严苛指令生成专
 generated_ids = model.generate(
     model_inputs["input_ids"], 
     attention_mask=model_inputs.attention_mask,
-    max_new_tokens=200,
+    max_new_tokens=100000,
     temperature=0.3
     )
 generated_ids = [
