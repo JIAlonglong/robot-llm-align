@@ -96,7 +96,7 @@ ssh -L 7860:localhost:7860 user@server
 The UI auto-loads the latest DPO pipeline checkpoint and best system prompt. Three tabs:
 
 > **Screenshot**: after launching, take a screenshot and save it to `assets/ui_screenshot.png` — it will appear here automatically once pushed.
-<!-- ![Web UI](./assets/ui_screenshot.png) -->
+![Web UI](./assets/ui_screenshot.png)
 
 | Tab | Description |
 |-----|-------------|

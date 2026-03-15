@@ -95,6 +95,9 @@ ssh -L 7860:localhost:7860 user@server
 
 UI 自动加载最新 DPO 流水线 checkpoint 和最优 system prompt。三个标签页：
 
+> **截图**：启动后截图保存到 `assets/ui_screenshot.png`，推送后自动显示。
+![Web UI](./assets/ui_screenshot.png)
+
 | 标签 | 说明 |
 |------|------|
 | **Agent 控制台** | 与模型对话；点击工具按钮（PID、RRT、A*、EKF 等）直接运行工具 |
