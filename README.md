@@ -19,6 +19,8 @@ This project builds domain-specific datasets for robot control (PID, path planni
 
 **Automated pipeline**: Every 4 hours — collect trajectories → DPO train → evaluate → benchmark
 
+![Pipeline Flow](./assets/pipeline_flow.png)
+
 ---
 
 ## Project Structure
@@ -93,6 +95,9 @@ ssh -L 7860:localhost:7860 user@server
 
 The UI auto-loads the latest DPO pipeline checkpoint and best system prompt. Three tabs:
 
+> **Screenshot**: after launching, take a screenshot and save it to `assets/ui_screenshot.png` — it will appear here automatically once pushed.
+<!-- ![Web UI](./assets/ui_screenshot.png) -->
+
 | Tab | Description |
 |-----|-------------|
 | **Agent Console** | Chat with the model; click tool buttons (PID, RRT, A*, EKF, etc.) to run tools directly |
@@ -138,6 +143,17 @@ conda run -n LLM python scripts/continuous_optimize.py --hours 12 --rounds-per-c
 | Localization | `ekf_localization(state, control, measurement)` | Extended Kalman Filter |
 | Manipulation | `arm_forward_kinematics(joint_angles, link_lengths)` | Forward kinematics |
 | Visualization | `plot_path_comparison(paths, labels)` | Multi-path comparison plot |
+
+<table>
+  <tr>
+    <td><img src="./assets/pid_demo.png" width="340"/><br><sub>PID Control Simulation</sub></td>
+    <td><img src="./assets/rrt_demo.png" width="340"/><br><sub>RRT Path Planning</sub></td>
+  </tr>
+  <tr>
+    <td><img src="./assets/ekf_demo.png" width="340"/><br><sub>EKF Localization</sub></td>
+    <td><img src="./assets/pipeline_flow.png" width="340"/><br><sub>4-Hour Training Pipeline</sub></td>
+  </tr>
+</table>
 
 ---
 

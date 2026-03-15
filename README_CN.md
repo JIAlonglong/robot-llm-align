@@ -19,6 +19,8 @@
 
 **自动化流水线**：每 4 小时一轮 — 收集轨迹 → DPO 训练 → 评估 → 基准测试
 
+![Pipeline Flow](./assets/pipeline_flow.png)
+
 ---
 
 ## 项目结构
@@ -138,6 +140,17 @@ conda run -n LLM python scripts/continuous_optimize.py --hours 12 --rounds-per-c
 | 定位 | `ekf_localization(state, control, measurement)` | 扩展卡尔曼滤波 |
 | 机械臂 | `arm_forward_kinematics(joint_angles, link_lengths)` | 正运动学 |
 | 可视化 | `plot_path_comparison(paths, labels)` | 多路径对比图 |
+
+<table>
+  <tr>
+    <td><img src="./assets/pid_demo.png" width="340"/><br><sub>PID 控制仿真</sub></td>
+    <td><img src="./assets/rrt_demo.png" width="340"/><br><sub>RRT 路径规划</sub></td>
+  </tr>
+  <tr>
+    <td><img src="./assets/ekf_demo.png" width="340"/><br><sub>EKF 定位</sub></td>
+    <td><img src="./assets/pipeline_flow.png" width="340"/><br><sub>4 小时训练流水线</sub></td>
+  </tr>
+</table>
 
 ---
 
