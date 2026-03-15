@@ -59,7 +59,7 @@ def check_libraries():
 
 def check_model_loading():
     # 选用的模型
-    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+    model_name = "Qwen/Qwen2.5-7B-Instruct"
 
     print(f"Loading model from {model_name}")
     # 加载分词器和模型（半精度 bfloat16 加载，完美适配 4090）

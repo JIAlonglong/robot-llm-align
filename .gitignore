@@ -32,8 +32,18 @@ results/*.png
 results/*.json
 results/*.csv
 
-# Environment
+# Environment & secrets
 .env
+.env.local
+config.local.py
+
+# Pipeline runtime outputs (user-specific)
+dataset/best_prompt.txt
+dataset/pipeline_summary.json
+dataset/pipeline_records_cycle*.jsonl
+dataset/dpo_pipeline_cycle*.jsonl
+dataset/benchmark_cycle*.json
+dataset/optimization_log*.jsonl
 
 # OS
 .DS_Store

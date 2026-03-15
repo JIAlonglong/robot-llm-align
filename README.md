@@ -1,149 +1,176 @@
 # Robot-LLM-Align
 
-> 机器人控制领域的大模型偏好对齐项目
+[![GitHub](https://img.shields.io/badge/GitHub-JIAlonglong-blue?logo=github)](https://github.com/JIAlonglong/robot-llm-align)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-## 项目简介
+> LLM preference alignment + Agent system for robot control domain
 
-本项目专注于在机器人控制领域（强化学习、PID 控制、MPC 等）构建专属偏好数据集，并使用 DPO 算法进行模型对齐，旨在减少大模型在专业领域的幻觉问题。
+**[中文文档](./README_CN.md) | English**
 
-## 核心特性
+---
 
-- 自动化生成领域专属偏好数据（覆盖强化学习、经典控制、现代控制等）
-- 基于 DPO 算法的偏好对齐训练
-- LLM-as-a-Judge 评估框架
-- 完整的训练和评估流程
+## Overview
 
-## 项目结构
+This project builds domain-specific datasets for robot control (PID, path planning, EKF, arm kinematics, etc.), trains aligned models via SFT → DPO, and integrates PythonRobotics tools to build a Robot Control Agent with real tool-calling capabilities.
+
+**Two parallel tracks:**
+- **Alignment**: SFT → DPO, reducing hallucinations in specialized domains
+- **Agent**: ReAct loop + rule-based tool routing, letting the model actually *do things*
+
+**Automated pipeline**: Every 4 hours — collect trajectories → DPO train → evaluate → benchmark
+
+---
+
+## Project Structure
 
 ```
 robot-llm-align/
-├── dataset/              # 数据集目录
-├── scripts/              # 训练和评估脚本
-├── checkpoints/          # 模型权重
-├── results/              # 实验结果
-├── README.md
-└── requirements.txt
+├── dataset/                              # Training data (gitignored runtime outputs)
+│   ├── sft_combined_v2.jsonl             # General SFT data
+│   ├── sft_with_tools.jsonl              # SFT data with tool calls
+│   ├── dpo_pairs.jsonl                   # DPO preference pairs
+│   └── dpo_train.jsonl                   # DPO training data (pipeline output)
+├── scripts/
+│   ├── pipeline.py                       # 4-hour automated cycle (collect→train→eval→benchmark)
+│   ├── continuous_optimize.py            # 12-hour standalone prompt optimization
+│   ├── train_sft.py                      # SFT training (Qwen2.5-7B + LoRA)
+│   ├── train_sft_1.5b.py                 # SFT training (Qwen2.5-1.5B + LoRA)
+│   ├── train_dpo.py                      # DPO training (7B)
+│   ├── train_dpo_1.5b.py                 # DPO training (1.5B)
+│   ├── evaluate.py                       # LLM-as-a-Judge evaluation
+│   ├── agent/
+│   │   ├── app.py                        # Web UI (3 tabs: Agent / Deep Search / Pipeline Monitor)
+│   │   ├── agent_executor.py             # ReAct execution engine
+│   │   ├── tool_registry.py              # Tool registry & dispatcher
+│   │   ├── reward.py                     # Reward functions
+│   │   └── tools/
+│   │       └── python_robotics_tools.py  # PythonRobotics adapter
+│   └── data_processing/                  # Data generation scripts
+├── checkpoints/                          # Trained model weights (gitignored)
+├── PythonRobotics/                       # Robot algorithm library (tool source)
+└── logs/                                 # Training logs (gitignored)
 ```
 
-## 快速开始
+---
 
-详细的两周实施计划请参考：[DPO_TWO_WEEK_PLAN.md](./DPO_TWO_WEEK_PLAN.md)
+## Environment Setup
 
-### 环境要求
+### Prerequisites
 
-- Python 3.8+
-- PyTorch 2.0+
-- CUDA 11.8+
-- 至少一张 24GB 显存的 GPU（推荐 RTX 4090）
+- Python 3.10+, PyTorch 2.0+, CUDA 11.8+ (training only)
+- conda environment: `LLM`
 
-### 安装依赖
+### Install
 
 ```bash
-pip install -r requirements.txt
+pip install transformers peft trl datasets accelerate bitsandbytes
+pip install gradio openai arxiv
 ```
 
-## 数据构建策略
+### Configure API Keys
 
-### 三阶段数据方案
-
-#### 阶段 1：通用指令遵循能力（200-300 条）
-**目的**：让模型学会基本的对话格式和指令遵循
-
-```python
-# 使用 HuggingFace 高质量通用数据
-dataset = load_dataset("HuggingFaceH4/ultrachat_200k", split="train_sft[:300]")
+```bash
+export SILICONFLOW_API_KEY="your_key_here"   # Required for pipeline & deep search
+export WANDB_API_KEY="your_key_here"         # Optional, for training tracking
 ```
 
-**优点**：快速建立基础对话能力
-**缺点**：缺少领域专业性
+Get a SiliconFlow key at [siliconflow.cn](https://siliconflow.cn) — used for DeepSeek-V3.2 task generation and prompt optimization.
 
-#### 阶段 2：领域基础知识注入（核心，500-800 条）
-**目的**：构建机器人控制领域的专业知识库
+---
 
-**方案 A：爬取专业问答**
-- 来源：Stack Overflow (`reinforcement-learning`, `control-theory` 标签)、Robotics Stack Exchange
-- 优点：真实问题，逻辑严密
-- 缺点：需要清洗，格式不统一
+## Quick Start
 
-**方案 B：利用 LLM 生成（推荐用于偏好数据）**
-```python
-# 用 GPT-4o 生成高质量的领域 QA 对
-system_prompt = """
-你是一个机器人控制领域的教授。请生成一个关于 {topic} 的问答对：
-- 问题要具体、有深度（不要泛泛而谈）
-- 答案要包含：原理解释 + 数学公式 + 实际应用场景
-- 答案长度：200-400 字
-"""
+### Launch Web UI
 
-topics = [
-    "Q-learning 的 off-policy 特性",
-    "PID 控制器的参数整定方法",
-    "MPC 的滚动优化原理",
-    # ... 50 个精选主题
-]
+```bash
+cd /path/to/robot-llm-align
+conda run -n LLM python scripts/agent/app.py
+
+# Remote server:
+ssh -L 7860:localhost:7860 user@server
+# Open http://localhost:7860
 ```
 
-**方案 C：从教材/论文提取（本项目采用）**
-- 来源：
-  - Sutton & Barto 的《Reinforcement Learning: An Introduction》
-  - 经典控制理论教材（如《自动控制原理》）
-  - 顶会论文（ICRA, IROS, RSS）
-- 优点：权威、准确、逻辑严密
-- 缺点：需要人工整理成 QA 格式
-- 实施方式：
-  1. 提取关键概念和定理
-  2. 将其改写为问答对
-  3. 保留数学公式和推导过程
+The UI auto-loads the latest DPO pipeline checkpoint and best system prompt. Three tabs:
 
-#### 阶段 3：多轮对话能力（可选，200 条）
-**目的**：模拟用户追问的场景
+| Tab | Description |
+|-----|-------------|
+| **Agent Console** | Chat with the model; click tool buttons (PID, RRT, A*, EKF, etc.) to run tools directly |
+| **Deep Search** | Search arxiv papers by keyword, get AI-generated summaries |
+| **Pipeline Monitor** | View training cycle history, current checkpoint, benchmark metrics |
 
-示例：
-```
-Q1: "什么是 Q-learning？"
-A1: [基础解释]
-Q2: "它和 SARSA 有什么区别？"
-A2: [对比分析]
-Q3: "哪个更适合机器人导航？"
-A3: [应用场景分析]
+### Run the Automated Pipeline
+
+```bash
+# Single 4-hour cycle
+conda run -n LLM python scripts/pipeline.py
+
+# Continuous (runs indefinitely, 4h per cycle)
+conda run -n LLM python scripts/pipeline.py --continuous
 ```
 
-### 数据质量标准
+Each cycle:
+1. **Collect** — DeepSeek generates tasks, rule-based agent executes them, records trajectories
+2. **Train** — DPO training on collected preference pairs
+3. **Evaluate** — 10 validation tasks, average reward
+4. **Benchmark** — instruction accuracy (8 cases) + hallucination rate (6 cases)
 
-**SFT 数据要求**：
-- 答案准确无误（可引用权威来源验证）
-- 包含数学公式（LaTeX 格式）
-- 指出常见误区
-- 给出实际应用场景
+Results saved to `dataset/pipeline_summary.json`.
 
-**偏好数据要求**：
-- Chosen 答案：逻辑严密、无幻觉
-- Rejected 答案：看似合理但包含致命错误（概念混淆、公式错误、适用场景错误）
+### Standalone Prompt Optimization (12h)
 
-## 开发计划
+```bash
+conda run -n LLM python scripts/continuous_optimize.py --hours 12 --rounds-per-cycle 15
+```
 
-- [ ] Week 1: 基建验证与领域数据构建
-  - [ ] Day 1: 环境验证
-  - [ ] Day 2-3: SFT 基线（通用数据 300 条 + 领域数据 500 条）
-  - [ ] Day 4-7: 构建偏好数据（150 对）
-- [ ] Week 2: DPO 训练与效果验证
-  - [ ] Day 8-9: DPO 训练
-  - [ ] Day 10-11: LLM-as-a-Judge 评估
-  - [ ] Day 12-13: 超参数优化
-  - [ ] Day 14: 项目打包
+---
 
-## 技术栈
+## Tool Set
 
-- PyTorch
-- Transformers
-- PEFT (LoRA)
-- TRL (DPO)
-- Weights & Biases
+| Category | Tool | Description |
+|----------|------|-------------|
+| Simulation | `simulate_pid(kp, ki, kd)` | PID control simulation, returns overshoot/settling time/plot |
+| Simulation | `cartpole_reset()` / `cartpole_step(action)` | CartPole physics simulation |
+| Path Planning | `rrt_planning(sx, sy, gx, gy)` | RRT random tree planning |
+| Path Planning | `astar_planning(sx, sy, gx, gy)` | A* grid planning |
+| Path Planning | `cubic_spline_planning(waypoints)` | Cubic spline trajectory |
+| Control | `lqr_steering_control(x, y, yaw, v, ref_path)` | LQR tracking control |
+| Localization | `ekf_localization(state, control, measurement)` | Extended Kalman Filter |
+| Manipulation | `arm_forward_kinematics(joint_angles, link_lengths)` | Forward kinematics |
+| Visualization | `plot_path_comparison(paths, labels)` | Multi-path comparison plot |
+
+---
+
+## Manual Training
+
+```bash
+# SFT (1.5B, GPU-friendly)
+conda run -n LLM python scripts/train_sft_1.5b.py
+
+# DPO (1.5B)
+conda run -n LLM python scripts/train_dpo_1.5b.py
+
+# Evaluation
+conda run -n LLM python scripts/evaluate.py --mode all
+```
+
+---
+
+## Tech Stack
+
+- **Models**: Qwen2.5-1.5B-Instruct / Qwen2.5-7B-Instruct + LoRA (PEFT)
+- **Training**: SFT → DPO (TRL)
+- **Tools**: PythonRobotics (path planning / control / localization / manipulation)
+- **Web UI**: Gradio with custom dark theme CSS
+- **Data generation**: DeepSeek-V3.2 via SiliconFlow API
+- **Experiment tracking**: Weights & Biases (optional)
+
+---
 
 ## License
 
 MIT
 
-## 联系方式
+## Author
 
-如有问题，欢迎提交 Issue。
+**JIAlonglong** — [GitHub](https://github.com/JIAlonglong)
