@@ -70,15 +70,37 @@ astar:{{"start_x":0,"start_y":0,"goal_x":8,"goal_y":8}} ekf:{{"state":"0,0,0","c
 arm_fk:{{"joint_angles":"0.5,1.0,0.3","link_lengths":"1,1,0.5"}} cartpole:{{"max_steps":200}}"""
 
 OPTIMIZER_SYSTEM = """你是AI Agent系统优化专家，分析执行记录改进system prompt。
+
+**核心约束（绝对不可违反）：**
+1. 必须保留工具调用格式：<tool_call>tool_name(args)</tool_call>
+2. 必须保留 Thought 和 Final Answer 结构
+3. 不能改变任务领域（机器人控制）
+4. 不能引入新工具或删除现有工具
+
+**优化方向：**
+- 改进任务理解和参数提取的指导
+- 优化错误处理和边界情况说明
+- 调整语气和表达方式
+
 输出格式：
 ## 问题分析
 <2-3个主要问题>
 ## 优化后的System Prompt
 ```
-<完整新prompt>
+<完整新prompt，必须包含工具调用格式和所有工具说明>
 ```"""
 
 INITIAL_SYSTEM_PROMPT = """你是专业的机器人控制Agent。根据任务描述选择合适工具完成任务。
+
+可用工具：
+- simulate_pid(kp, ki, kd, setpoint=1.0) — PID控制仿真
+- rrt_planning(start_x, start_y, goal_x, goal_y) — RRT路径规划
+- astar_planning(start_x, start_y, goal_x, goal_y) — A*路径规划
+- cubic_spline_planning(waypoints) — 三次样条轨迹
+- lqr_steering_control(x, y, yaw, v, ref_path) — LQR转向控制
+- ekf_localization(state, control, measurement) — EKF定位
+- arm_forward_kinematics(joint_angles, link_lengths) — 机械臂正运动学
+- cartpole_reset() / cartpole_step(action) — CartPole仿真
 
 工具调用格式（严格遵守）：
 Thought: <分析任务，选择工具和参数>
@@ -212,6 +234,17 @@ def execute_task(task: dict) -> dict:
     return {"result": result, "reward": reward, "task_type": task_type, "success": reward > 0.5}
 
 
+def validate_prompt(prompt: str) -> bool:
+    """验证 prompt 是否包含必要元素"""
+    required = [
+        "<tool_call>",
+        "tool_name",
+        "Thought",
+        "Final Answer",
+    ]
+    return all(keyword in prompt for keyword in required)
+
+
 def optimize_prompt(client, current_prompt: str, records: list, cycle: int) -> str:
     total   = len(records)
     avg_r   = sum(r["reward"] for r in records) / max(total,1)
@@ -239,7 +272,14 @@ def optimize_prompt(client, current_prompt: str, records: list, cycle: int) -> s
             parts = out.split("```")
             for i,p in enumerate(parts):
                 if i%2==1 and len(p.strip())>50:
-                    return p.strip().lstrip("prompt").strip()
+                    new_prompt = p.strip().lstrip("prompt").strip()
+                    # 验证新 prompt
+                    if validate_prompt(new_prompt):
+                        log(f"  ✓ Prompt 验证通过")
+                        return new_prompt
+                    else:
+                        log(f"  ✗ Prompt 验证失败，缺少必要元素，保留旧版本")
+                        return current_prompt
     except Exception as e:
         log(f"  Optimizer error: {e}")
     return current_prompt
