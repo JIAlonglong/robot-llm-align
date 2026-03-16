@@ -168,18 +168,22 @@ def astar_planning(
 
         path = [[round(x, 3), round(y, 3)] for x, y in zip(rx, ry)]
 
+        # 计算路径长度（欧氏距离）
+        path_length = sum(np.hypot(path[i+1][0] - path[i][0], path[i+1][1] - path[i][1])
+                          for i in range(len(path) - 1))
+
         # 绘图
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.plot(ox, oy, ".k", markersize=4, label="Obstacle")
         ax.plot([p[0] for p in path], [p[1] for p in path], "-r", linewidth=2, label="Path")
         ax.plot(start_x, start_y, "bs", markersize=8, label="Start")
         ax.plot(goal_x, goal_y, "g*", markersize=12, label="Goal")
-        ax.legend(); ax.grid(True); ax.set_title(f"A* Planning ({len(path)} steps)")
+        ax.legend(); ax.grid(True); ax.set_title(f"A* Planning (len={path_length:.2f})")
         ax.set_aspect("equal")
         buf = BytesIO(); plt.savefig(buf, format="png", dpi=100, bbox_inches="tight"); buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode(); plt.close()
 
-        return {"success": True, "path": path, "length": len(path), "plot_base64": img_b64}
+        return {"success": True, "path": path, "length": round(float(path_length), 3), "plot_base64": img_b64}
 
     except Exception as e:
         return {"success": False, "error": str(e)}

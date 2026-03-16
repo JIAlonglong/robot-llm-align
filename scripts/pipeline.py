@@ -194,6 +194,19 @@ def execute_task(task: dict) -> dict:
         result = {"error": f"未知类型: {task_type}"}
 
     reward = tool_call_reward(result, task_type)
+
+    # 路径规划任务：用起终点坐标计算更精确的奖励
+    if task_type in ("rrt", "astar") and result.get("success"):
+        from reward import path_planning_reward_with_coords
+        reward = path_planning_reward_with_coords(
+            success=True,
+            path_length=result.get("length", 9999),
+            start_x=params.get("start_x", 0),
+            start_y=params.get("start_y", 0),
+            goal_x=params.get("goal_x", 10),
+            goal_y=params.get("goal_y", 10),
+        )
+
     if isinstance(result, dict): result.pop("plot_base64", None)
     _sink.close()
     return {"result": result, "reward": reward, "task_type": task_type, "success": reward > 0.5}
